@@ -247,7 +247,7 @@ class Git(Vcs):
             # TODO: Why do we assume origin is upstream?
             if name == 'origin':
                 if repo.startswith("git@github.com:"):
-                    return "https://github.com/" + repo[len("git@github.com:"):]
+                    return "https://github.com/" + without_ending('.git', repo[len("git@github.com:"):])
                 elif repo.startswith(("git://github.com/", "https://github.com/")):
                     repo = without_ending('.git', repo)
                     if repo.startswith("git:"):
@@ -389,7 +389,7 @@ def tree_to_repos(tree):
     # We may see multiple VCS if we use git submodules, for example.
     for cwd, dirs, files in os.walk(tree.source_folder):
         for vcs in every_vcs:
-            attempt = vcs.claim_vcs_source(cwd, dirs, tree)
+            attempt = vcs.claim_vcs_source(cwd, dirs + files, tree)
             if attempt is not None:
                 sources[attempt.root] = attempt
 
