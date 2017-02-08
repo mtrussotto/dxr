@@ -93,9 +93,9 @@ def filtered_query_hits(index, doc_type, filter, sort=None, size=1, include=None
     if sort:
         query['sort'] = sort
     if include is not None:
-        query['_source'] = {'include': include}
+        query['_source'] = {'includes': include}
     elif exclude is not None:
-        query['_source'] = {'exclude': exclude}
+        query['_source'] = {'excludes': exclude}
     return current_app.es.search(
         query,
         index=index,
