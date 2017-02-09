@@ -749,6 +749,11 @@ function analyzeJS(filepath, relpath, tempFilepath)
   text = text.replace(/[\u2028\u2029]/g, ' ');
 
   const lines = text.split('\n');
+
+  // Probably a misnamed shell script.
+  if (lines[0].startsWith("#!/")) {
+	return;
+  }
   // With files this large we currently risk running out of memory in the
   // indexer, so we skip them. TODO: fix the issue and disable this check.
   if (lines.length >= 100000) {
