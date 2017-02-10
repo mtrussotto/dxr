@@ -88,7 +88,8 @@ def deploy_tree(tree, es, index_name):
                         'number_of_shards': 1,
                         # This should be cranked up until it's on all nodes,
                         # so it's always a fast read:
-                        'number_of_replicas': config.es_catalog_replicas
+                        'number_of_replicas': config.es_catalog_replicas,
+                        'max_result_window' : 1000000  # because the app wants that
                     },
                 },
                 'mappings': {
@@ -136,7 +137,7 @@ def swap_alias(alias, index, es):
 
     """
     # Get the index the alias currently points to.
-    old_index = first(es.aliases(alias))
+    old_index = first(es.get_alias(alias=alias))
 
     # Make the alias point to the new index.
     removal = ([{'remove': {'index': old_index, 'alias': alias}}] if
@@ -223,7 +224,8 @@ def index_tree(tree, es, verbose=False):
                     'settings': {
                         'index': {
                             'number_of_shards': tree.es_shards,  # Fewer should be faster, assuming enough RAM.
-                            'number_of_replicas': 0  # for speed
+                            'number_of_replicas': 0,  # for speed
+                            'max_result_window' : 1000000  # because the app wants that
                         },
                         # Default analyzers and mappings are in the core plugin.
                         'analysis': reduce(

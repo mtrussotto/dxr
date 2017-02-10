@@ -247,9 +247,13 @@ def raw(tree, path):
         raise NotFound
 
     query = {
-        'filter': {
-            'term': {
-                'path': path
+        'query' : {
+            'bool' : {
+                'filter': {
+                    'term': {
+                        'path': path
+                    }
+                }
             }
         }
     }
@@ -294,12 +298,14 @@ def lines(tree):
     ctx_found = []
     possible_hits = current_app.es.search(
             {
-                'filter': {
-                    'and': [
-                        {'term': {'path': path}},
-                        {'range': {'number': {'gte': from_line, 'lte': to_line}}}
+                'query' : {
+                    'bool': {
+                        'filter': [
+                            {'term': {'path': path}},
+                            {'range': {'number': {'gte': from_line, 'lte': to_line}}}
                         ]
-                    },
+                    }
+                },
                 '_source': {'include': ['content']},
                 'sort': ['number']
             },

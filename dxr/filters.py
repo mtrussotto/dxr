@@ -124,7 +124,7 @@ def negatable(filter_method):
     @wraps(filter_method)
     def maybe_negate(self):
         positive = filter_method(self)
-        return {'not': positive} if positive and self._term['not'] else positive
+        return {'bool': { 'must_not' : positive}} if positive and self._term['not'] else positive
     return maybe_negate
 
 
@@ -170,11 +170,9 @@ class NameFilterBase(Filter):
             # term filters have no query analysis phase. We must use a
             # match query, which is an analyzer pass + a term filter:
             return {
-                'query': {
-                    'match': {
-                        '{needle}.name.lower'.format(needle=self._needle):
-                            self._term['arg']
-                    }
+                'match': {
+                    '{needle}.name.lower'.format(needle=self._needle):
+                    self._term['arg']
                 }
             }
 
@@ -230,8 +228,8 @@ class QualifiedNameFilterBase(NameFilterBase):
         if self._term['qualified']:
             return self._term_filter('qualname')
         else:
-            return {'or': [super(QualifiedNameFilterBase, self)._positive_filter(),
-                           self._term_filter('qualname')]}
+            return {'bool': {'should' :[super(QualifiedNameFilterBase, self)._positive_filter(),
+                           self._term_filter('qualname')]}}
 
     def _should_be_highlit(self, entity):
         """Return whether a structural entity should be highlit, according to

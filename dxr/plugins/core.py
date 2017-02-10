@@ -29,15 +29,14 @@ __all__ = ['mappings', 'analyzers', 'TextFilter', 'PathFilter', 'FilenameFilter'
 
 
 PATH_SEGMENT_MAPPING = {  # some portion of a path/to/a/folder/filename.cpp string
-    'type': 'string',
-    'index': 'not_analyzed',  # support JS source fetching & sorting & browse() lookups
+    'type': 'keyword',  # support JS source fetching & sorting & browse() lookups
     'fields': {
         'trigrams_lower': {
-            'type': 'string',
+            'type': 'text',
             'analyzer': 'trigramalyzer_lower'  # accelerate wildcards
         },
         'trigrams': {
-            'type': 'string',
+            'type': 'text',
             'analyzer': 'trigramalyzer'
         }
     }
@@ -73,18 +72,18 @@ mappings = {
             'size': UNINDEXED_INT,  # bytes. not present for folders.
             'modified': {  # not present for folders
                 'type': 'date',
-                'index': 'no'
+                'index': 'false'
             },
             'is_folder': {
                 'type': 'boolean'
             },
             'raw_data': {  # present only if the file is an image
                 'type': 'binary',
-                'index': 'no'
+                'index': 'false'
             },
             'is_binary': { # assumed False if not present
                 'type': 'boolean',
-                'index': 'no'
+                'index': 'false'
             },
             'description': UNINDEXED_STRING,
 
@@ -131,8 +130,7 @@ mappings = {
             # JS regex script, but in actuality, that uses much more RAM than
             # pulling just plain content, to the point of crashing.
             'content': {
-                'type': 'string',
-                'index': 'not_analyzed',  # Support fast fetching from JS.
+                'type': 'keyword',   # Support fast fetching from JS.
 
                 # ES supports terms of only length 32766 (by UTF-8 encoded
                 # length). The limit here (in Unicode points, in an
@@ -145,11 +143,11 @@ mappings = {
                 # These get populated even if the ignore_above kicks in:
                 'fields': {
                     'trigrams_lower': {
-                        'type': 'string',
+                        'type': 'text',
                         'analyzer': 'trigramalyzer_lower'
                     },
                     'trigrams': {
-                        'type': 'string',
+                        'type': 'text',
                         'analyzer': 'trigramalyzer'
                     }
                 }
@@ -157,30 +155,34 @@ mappings = {
 
             'refs': {
                 'type': 'object',
-                'start': UNINDEXED_INT,
-                'end': UNINDEXED_INT,
-                'payload': {
-                    'type': 'object',
-                    'properties': {
-                        'plugin': UNINDEXED_STRING,
-                        'id': UNINDEXED_STRING,  # Ref ID
-                        'menu_data': UNINDEXED_STRING,  # opaque to ES
-                        'hover': UNINDEXED_STRING,
-                        # Hash of qualname of the symbol we're hanging the
-                        # menu off of, if it is a symbol and we can come up
-                        # with a qualname. This powers the highlighting of
-                        # other occurrences of the symbol when you pull up the
-                        # context menu.
-                        'qualname_hash': UNINDEXED_LONG
+                'properties': {
+                    'start': UNINDEXED_INT,
+                    'end': UNINDEXED_INT,
+                    'payload': {
+                        'type': 'object',
+                        'properties': {
+                            'plugin': UNINDEXED_STRING,
+                            'id': UNINDEXED_STRING,  # Ref ID
+                            'menu_data': UNINDEXED_STRING,  # opaque to ES
+                            'hover': UNINDEXED_STRING,
+                            # Hash of qualname of the symbol we're hanging the
+                            # menu off of, if it is a symbol and we can come up
+                            # with a qualname. This powers the highlighting of
+                            # other occurrences of the symbol when you pull up the
+                            # context menu.
+                            'qualname_hash': UNINDEXED_LONG
+                        }
                     }
                 }
             },
 
             'regions': {
                 'type': 'object',
-                'start': UNINDEXED_INT,
-                'end': UNINDEXED_INT,
-                'payload': UNINDEXED_STRING,
+                'properties': {
+                    'start': UNINDEXED_INT,
+                    'end': UNINDEXED_INT,
+                    'payload': UNINDEXED_STRING,
+                }
             },
 
             'annotations': {
@@ -260,11 +262,9 @@ class TextFilter(Filter):
         if len(text) < NGRAM_LENGTH:
             return None
         return {
-            'query': {
-                'match_phrase': {
-                    'content.trigrams' if self._term['case_sensitive']
-                    else 'content.trigrams_lower': text
-                }
+            'match_phrase': {
+                'content.trigrams' if self._term['case_sensitive']
+                else 'content.trigrams_lower': text
             }
         }
 
@@ -403,7 +403,7 @@ class FilterAggregator(Filter):
 
     def filter(self):
         # OR together all the underlying filters.
-        return {'or': filter(None, (f.filter() for f in self.filters))}
+        return {'bool': {'should': filter(None, (f.filter() for f in self.filters))}}
 
     def highlight_content(self, result):
         # Union all of our underlying filters.
@@ -607,10 +607,12 @@ def direct_path_and_line(term):
         return None
 
     return {
-        'and': [
-            trigram_clause,
-            {'term': {'number': line}}
-        ]
+        'bool' : {
+            'filter': [
+                trigram_clause,
+                {'term': {'number': line}}
+            ]
+        }
     }
 
 

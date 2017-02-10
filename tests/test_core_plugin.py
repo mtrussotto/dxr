@@ -16,7 +16,8 @@ def test_find_iter():
     list_eq(_find_iter('heyhey', ''), [])
     list_eq(_find_iter('hhhhh', 'hh'), [0, 2])  # Don't report overlaps.
 
-
+# These tests are kind of obnoxious in as much as they are testing internals rather than
+# behavior.
 class PathFilterTests(TestCase):
     """A few sanity checks for PathFilter
 
@@ -34,37 +35,32 @@ class PathFilterTests(TestCase):
                         'not': False,
                         'case_sensitive': False}, []).filter(),
             {
-                'and': [
-                    {
-                        'and': [
-                            {
-                                'query': {
+                'bool': {
+                    'filter' : [{
+                        'bool' : {
+                            'filter' : [
+                                {
                                     'match_phrase': {
                                         'path.trigrams_lower': 'hork'
                                     }
-                                }
-                            },
-                            {
-                                'query': {
+                                },
+                                {
                                     'match_phrase': {
                                         'path.trigrams_lower': '.cp'
                                     }
                                 }
-                            }
-                        ]
-                    },
-                    {
-                        'script': {
-                            'lang': 'js',
-                            'script': '(new RegExp(pattern, flags)).test(doc["path"][0])',
-                            'params': {
-                                'pattern': r'.*hi.*hork.*\.cp.',
-                                'flags': 'i'
+                            ]
+                        }},
+                        {
+                            'script': {
+                                'script' : {
+                                    'lang': 'painless',
+                                    'inline': r'return doc["path"][0] =~ /.*hi.*hork.*\.cp./i',
+                                }
                             }
                         }
-                    }
-                ]
-            })
+                    ]}
+                })
 
     def test_classes_and_capitals(self):
         """Make sure glob char classes aren't totally bungled and
@@ -81,23 +77,21 @@ class PathFilterTests(TestCase):
                         'not': False,
                         'case_sensitive': True}, []).filter(),
             {
-                'and': [
-                    {
-                        'query': {
+                'bool': {
+                    'filter': [
+                        {
                             'match_phrase': {
                                 'path.trigrams': 'fooba'
                             }
-                        }
-                    },
-                    {
-                        'script': {
-                            'lang': 'js',
-                            'script': '(new RegExp(pattern, flags)).test(doc["path"][0])',
-                            'params': {
-                                'pattern': r'fooba[rz]',
-                                'flags': ''
+                        },
+                        {
+                            'script' : {
+                                'script': {
+                                    'lang': 'painless',
+                                    'inline': r'return doc["path"][0] =~ /fooba[rz]/',
+                                }
                             }
                         }
-                    }
-                ]
+                    ]
+                }
             })

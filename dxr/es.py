@@ -8,26 +8,27 @@ from dxr.config import FORMAT
 
 
 UNINDEXED_STRING = {
-    'type': 'string',
-    'index': 'no',
+    'type': 'keyword',
+    # doc_values and index must both be false to allow > 32k strings.
+    'index': 'false',
+    'doc_values': 'false'
 }
 
 
 UNANALYZED_STRING = {
-    'type': 'string',
-    'index': 'not_analyzed',
+    'type': 'keyword',
 }
 
 
 UNINDEXED_INT = {
     'type': 'integer',
-    'index': 'no',
+    'index': 'false',
 }
 
 
 UNINDEXED_LONG = {
     'type': 'long',
-    'index': 'no',
+    'index': 'false',
 }
 
 
@@ -81,17 +82,14 @@ def filtered_query(*args, **kwargs):
 def filtered_query_hits(index, doc_type, filter, sort=None, size=1, include=None, exclude=None):
     """Do a simple, filtered term query, returning an iterable of hit hashes."""
     query = {
-            'query': {
-                'filtered': {
-                    'query': {
-                        'match_all': {}
-                    },
-                    'filter': {
-                        'term': filter
-                    }
+        'query': {
+            'bool' : {
+                'filter': {
+                    'term': filter
                 }
             }
         }
+    }
     if sort:
         query['sort'] = sort
     if include is not None:
@@ -110,7 +108,7 @@ def create_index_and_wait(es, index, settings=None):
     es.create_index(index, settings=settings)
     es.health(index=index,
               wait_for_status='yellow',
-              wait_for_relocating_shards=0,  # wait for all
+              wait_for_no_relocating_shards=True,  # wait for all
               timeout='5m')
 
 

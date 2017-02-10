@@ -130,24 +130,19 @@ class Query(object):
         # punt by returning {} and ors that contain nothing but punts:
         ors = filter(None, [filter(None, (f.filter() for f in term))
                             for term in filters])
-        ors = [{'or': x} for x in ors]
-
+        ors = [{'bool': {'should': x}} for x in ors]
+ 
         if not is_line_query:
             # Don't show folders yet in search results. I don't think the JS
             # is able to handle them.
             ors.append({'term': {'is_folder': False}})
             # Filter out all FILE docs who are links.
-            ors.append({'not': {'exists': {'field': 'link'}}})
+            ors.append({'bool': {'must_not': {'exists': {'field': 'link'}}}})
 
         if ors:
             query = {
-                'filtered': {
-                    'query': {
-                        'match_all': {}
-                    },
-                    'filter': {
-                        'and': ors
-                    }
+                'bool': {
+                    'filter': ors
                 }
             }
         else:
@@ -188,13 +183,11 @@ class Query(object):
         for searcher in direct_searchers(self.enabled_plugins):
             clause = searcher(term)
             if clause:
+                print str(searcher) + " " + str(clause)
                 results = self.es_search(
                     {
                         'query': {
-                            'filtered': {
-                                'query': {
-                                    'match_all': {}
-                                },
+                            'bool': {
                                 'filter': clause
                             }
                         },

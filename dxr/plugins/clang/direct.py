@@ -5,7 +5,7 @@ def insensitive(field):
     def matcher(term):
         """Return an elasticsearch clause demanding a case-insensitive match of
         the term's ``arg`` against the given field."""
-        return {'query': {'match': {field: term['arg']}}}
+        return {'match': {field: term['arg']}}
     return matcher
 
 

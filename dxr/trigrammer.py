@@ -534,15 +534,14 @@ def boolean_filter_tree(substrings, trigram_field):
     """
     if isinstance(substrings, basestring):
         return {
-            'query': {
-                'match_phrase': {
-                    trigram_field: substrings
-                }
+            'match_phrase': {
+                trigram_field: substrings
             }
         }
-    return {
-        'and' if isinstance(substrings, And) else 'or':
-            [boolean_filter_tree(x, trigram_field) for x in substrings]
+    return { 'bool': { 
+        'filter' if isinstance(substrings, And) else 'should':
+        [boolean_filter_tree(x, trigram_field) for x in substrings]
+        }
     }
 
 
@@ -576,18 +575,18 @@ def es_regex_filter(parsed_regex, raw_field, is_case_sensitive):
         # Should be fine even if the regex already starts or ends with .*:
         js_regex = JsRegexVisitor().visit(parsed_regex)
         return {
-            'and': [
-                boolean_filter_tree(substrings, trigram_field),
-                {
-                    'script': {
-                        'lang': 'js',
-                        # test() tests for containment, not matching:
-                        'script': '(new RegExp(pattern, flags)).test(doc["%s"][0])' % raw_field,
-                        'params': {
-                            'pattern': js_regex,
-                            'flags': '' if is_case_sensitive else 'i'
+            'bool': {
+                'filter': [
+                    boolean_filter_tree(substrings, trigram_field),
+                    {
+                        'script': {
+                            # test() tests for containment, not matching:
+                            'script': {
+                                'inline': 'return doc["%s"][0] =~ /%s/%s' % (raw_field, js_regex.replace('/', '\/'), '' if is_case_sensitive else 'i'),
+                                'lang': 'painless',
+                            }
                         }
                     }
-                }
-            ]
+                ]
+            }
         }

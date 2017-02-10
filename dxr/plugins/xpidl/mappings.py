@@ -8,11 +8,11 @@ LINE_NEEDLE = {
         'name': STRING_PROPERTY,
         'start': {
             'type': 'integer',
-            'index': 'no'  # just for highlighting
+            'index': 'false'  # just for highlighting
         },
         'end': {
             'type': 'integer',
-            'index': 'no'
+            'index': 'false'
         }
     }
 }
