@@ -435,7 +435,7 @@ def unignored(folder, ignore_paths, ignore_filenames, want_folders=False):
             for f in folders:
                 yield join(root, f)
 
-def index_file(tree, tree_indexers, path, es, index):
+def index_file(tree, tree_indexers, path, es, index, log=None):
     """Index a single file into ES, and build a static HTML representation of it.
 
     For the moment, we execute plugins in series, figuring that we have plenty
@@ -448,13 +448,14 @@ def index_file(tree, tree_indexers, path, es, index):
     :arg index: The ES index name
 
     """
+    log and log.write('Starting %s.\n' % path)
     try:
         contents = unicode_contents(path, tree.source_encoding)
     except IOError as exc:
         if exc.errno == ENOENT and islink(path):
             # It's just a bad symlink (or a symlink that was swiped out
             # from under us--whatever)
-            return
+            return iter(())
         else:
             raise
 
@@ -548,14 +549,8 @@ def index_file(tree, tree_indexers, path, es, index):
                 # garbage collected. Since we won't use it again, we can clear
                 # the contents, saving substantial memory on long files.
                 total.clear()
+    return docs()
 
-    # Indexing a 277K-line file all in one request makes ES time out (>60s),
-    # so we chunk it up. 300 docs is optimal according to the benchmarks in
-    # https://bugzilla.mozilla.org/show_bug.cgi?id=1122685. So large docs like
-    # images don't make our chunk sizes ridiculous, there's a size ceiling as
-    # well: 10000 is based on the 300 and an average of 31 chars per line.
-    for chunk in bulk_chunks(docs(), docs_per_chunk=300, bytes_per_chunk=10000):
-        es.bulk(chunk, index=index, doc_type=LINE)
 
 
 def index_chunk(tree,
@@ -582,9 +577,8 @@ def index_chunk(tree,
                 log = (worker_number and
                        open_log(tree.log_folder,
                                 'index-chunk-%s.log' % worker_number))
-                for path in paths:
-                    log and log.write('Starting %s.\n' % path)
-                    index_file(tree, tree_indexers, path, es, index)
+                for chunk in bulk_chunks(chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), docs_per_chunk=None, bytes_per_chunk=10000000):
+                    es.bulk(chunk, index=index, doc_type=LINE)
                 log and log.write('Finished chunk.\n')
             finally:
                 log and log.close()
