@@ -51,7 +51,7 @@ def list(config):
 
 
 def alias_to_index_map(es, aliases):
-    results = es.get_aliases(alias=aliases)
+    results = es.get_alias(alias=aliases)
     aliases = {}  # alias -> index
     for index, obj in results.iteritems():
         for alias in obj['aliases']:
