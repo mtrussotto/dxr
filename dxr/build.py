@@ -18,7 +18,8 @@ from click import progressbar
 from flask import current_app
 from funcy import ichunks, first
 from pyelasticsearch import (ElasticSearch, IndexAlreadyExistsError,
-                             bulk_chunks, Timeout, ConnectionError)
+                             ElasticHttpNotFoundError, bulk_chunks, Timeout,
+                             ConnectionError)
 
 from dxr.app import make_app, dictify_links
 from dxr.config import FORMAT
@@ -137,7 +138,11 @@ def swap_alias(alias, index, es):
 
     """
     # Get the index the alias currently points to.
-    old_index = first(es.get_alias(alias=alias))
+    old_index = None;
+    try:
+        old_index = first(es.get_alias(alias=alias))
+    except ElasticHttpNotFoundError:
+        pass
 
     # Make the alias point to the new index.
     removal = ([{'remove': {'index': old_index, 'alias': alias}}] if
