@@ -83,6 +83,10 @@ class Vcs(object):
         """Construct URL to upstream view to raw file at path."""
         raise NotImplementedError
 
+    def generate_normal(self, path):
+        """Construct URL to upstream view to raw file at path."""
+        raise NotImplementedError
+
     def last_modified_date(self, path):
         """Return a datetime object that represents the last UTC a commit was
         made to the given path.
@@ -289,6 +293,9 @@ class Git(Vcs):
 
     def generate_blame(self, path):
         return "{}/blame/{}/{}#L{{{{line}}}}".format(self.upstream, self.revision, path)
+
+    def generate_normal(self, path):
+        return "{}/blob/{}/{}#L{{{{line}}}}".format(self.upstream, self.revision, path)
 
     def generate_log(self, path):
         return "{}/commits/{}/{}".format(self.upstream, self.revision, path)

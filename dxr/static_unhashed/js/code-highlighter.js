@@ -314,6 +314,15 @@ $(function () {
             } else {
                 updateHash('#');
             }
+            if (event.button == 2 || event.altKey) {
+                let whereto = $('.panel a.normalview')
+                if (!whereto.length)
+                    whereto = $('.panel a.raw')
+                if (whereto.length) {
+                    let dest = whereto.first().data('template').replace(/{{line}}/g, clickedNum);
+                    window.open(dest)
+                }
+            }
         }
         setWindowHash();
     });

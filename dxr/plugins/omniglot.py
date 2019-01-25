@@ -31,8 +31,8 @@ class FileToIndex(dxr.indexers.FileToIndex):
             yield 'blame', "Blame", self.vcs.generate_blame(vcs_relative_path)
             yield 'diff',  "Diff", self.vcs.generate_diff(vcs_relative_path)
             yield 'raw', "Raw", self.vcs.generate_raw(vcs_relative_path)
+            yield 'normalview', "Normal", self.vcs.generate_normal(vcs_relative_path)
 
         if self.vcs and self.vcs.has_upstream():
             vcs_relative_path = relpath(self.absolute_path(), self.vcs.get_root_dir())
-            yield (5, 'VCS Links', items())
-
+            yield (6, 'VCS Links', items())
