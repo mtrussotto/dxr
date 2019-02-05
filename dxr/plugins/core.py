@@ -25,7 +25,7 @@ from dxr.trigrammer import (regex_grammar, NGRAM_LENGTH, es_regex_filter,
 from dxr.utils import glob_to_regex, split_content_lines, unicode_for_display
 
 __all__ = ['mappings', 'analyzers', 'TextFilter', 'PathFilter', 'FilenameFilter',
-           'ExtFilter', 'RegexpFilter', 'IdFilter', 'RefFilter']
+           'ExtFilter', 'RegexpFilter', 'IdFilter', 'RefFilter', 'TrackedFilter']
 
 
 PATH_SEGMENT_MAPPING = {  # some portion of a path/to/a/folder/filename.cpp string
@@ -84,6 +84,9 @@ mappings = {
             'is_binary': { # assumed False if not present
                 'type': 'boolean',
                 'index': 'false'
+            },
+            'is_tracked': { # assumed False if not present
+                'type': 'boolean'
             },
             'description': UNINDEXED_STRING,
 
@@ -330,6 +333,25 @@ class FilenameFilter(_PathSegmentFilterBase):
                                   'File globs need at least 3 literal '
                                   'characters in a row for speed.')
 
+class TrackedFilter(Filter):
+    """Substring filter for file names"""
+    name = 'tracked'
+    domain = FILE
+    description = Markup('File to search within. <code>*</code>, '
+                         '<code>?</code>, and <code>[...]</code> act as shell '
+                         'wildcards.')
+
+    @negatable
+    def filter(self):
+        text = self._term['arg']
+        text = "1" if not text else text.lower();
+        positive = {
+            'term': {
+                'is_tracked': True
+            }
+        }
+        no_track = (text.startswith('f') or text.startswith('n') or text == '0')
+        return {'bool': { 'must_not' : positive}} if no_track else positive
 
 class ExtFilter(Filter):
     """Case-sensitive filter for exact matching on file extensions"""
@@ -497,6 +519,7 @@ class FileToIndex(dxr.indexers.FileToIndex):
         # otherwise fall back to the timestamp from stat'ing the file.
         modified = None
         if self.vcs:
+            yield 'is_tracked', True
             vcs_relative_path = relpath(self.absolute_path(),
                                         self.vcs.get_root_dir())
             try:
