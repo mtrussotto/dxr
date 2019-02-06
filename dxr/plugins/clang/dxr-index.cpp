@@ -144,7 +144,12 @@ public:
       const FileEntry *file,
       StringRef searchPath,
       StringRef relativePath,
+#if CLANG_AT_LEAST(7, 0)
+      const Module *imported,
+      SrcMgr::CharacteristicKind fileType) override;
+#else
       const Module *imported) override;
+#endif
 };
 
 // IndexConsumer is our primary AST consumer.
@@ -1113,7 +1118,11 @@ public:
         loc = sm.getImmediateSpellingLoc(loc);
       }
       else
+#if CLANG_AT_LEAST(7, 0)
+        loc = sm.getImmediateExpansionRange(loc).getBegin();
+#else
         loc = sm.getImmediateExpansionRange(loc).first;
+#endif
     }
     return loc;
   }
@@ -1266,7 +1275,12 @@ public:
       const FileEntry *file,
       StringRef searchPath,
       StringRef relativePath,
+#if CLANG_AT_LEAST(7, 0)
+      const Module *imported,
+      SrcMgr::CharacteristicKind fileType) {
+#else
       const Module *imported) {
+#endif
     PresumedLoc presumedHashLoc = sm.getPresumedLoc(hashLoc);
     if (!interestingLocation(hashLoc) ||
         filenameRange.isInvalid() ||
@@ -1396,10 +1410,18 @@ void PreprocThunk::InclusionDirective(
     const FileEntry *file,
     StringRef searchPath,
     StringRef relativePath,
+#if CLANG_AT_LEAST(7, 0)
+    const Module *imported,
+    SrcMgr::CharacteristicKind fileType) {
+  real->InclusionDirective(hashLoc, includeTok, fileName, isAngled, filenameRange,
+                           file, searchPath, relativePath, imported, fileType);
+}
+#else
     const Module *imported) {
   real->InclusionDirective(hashLoc, includeTok, fileName, isAngled, filenameRange,
                            file, searchPath, relativePath, imported);
 }
+#endif
 
 // Our plugin entry point.
 class DXRIndexAction : public PluginASTAction {
