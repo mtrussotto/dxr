@@ -22,6 +22,7 @@ lint: $(VIRTUAL_ENV)/bin/activate requirements
 
 clean: static_clean
 	rm -rf .npm_installed \
+	       .requirements_patched \
 	       .requirements_installed \
 	       venv \
 	       .dxr_installed
@@ -88,7 +89,7 @@ docker_machine:
 # creating one for you, you'll need Python packages installed.
 $(VIRTUAL_ENV)/bin/activate:
 	virtualenv $(VIRTUAL_ENV)
-	rm -f .requirements_installed .dxr_installed
+	rm -f .requirements_installed .requirements_patched .dxr_installed
 
 # Install DXR into the venv. Reinstall it if the setuptools entry points may
 # have changed. To install it in non-editable mode, set DXR_PROD=1 in the
@@ -102,7 +103,7 @@ endif
 	touch $@
 
 # Install Python requirements:
-requirements: $(VIRTUAL_ENV)/bin/activate .requirements_installed
+requirements: $(VIRTUAL_ENV)/bin/activate .requirements_installed .requirements_patched
 
 plugins:
 	$(MAKE) -C dxr/plugins/clang
@@ -121,6 +122,12 @@ dxr/static_unhashed/js/templates.js: dxr/templates/nunjucks/*.html \
 
 # Install requirements in current virtualenv:
 .requirements_installed: $(VIRTUAL_ENV)/bin/activate requirements.txt
+	. $(VIRTUAL_ENV)/bin/activate && ./tooling/pipstrap.py
+	$(VIRTUAL_ENV)/bin/pip install --require-hashes -r requirements.txt
+	touch $@
+
+.requirements_patched: .requirements_installed
+	patch --forward --fuzz=0 -d $(VIRTUAL_ENV) -p2 < tooling/pyelasticsearch_for_es5.patch
 	. $(VIRTUAL_ENV)/bin/activate && ./tooling/pipstrap.py
 	$(VIRTUAL_ENV)/bin/pip install --require-hashes -r requirements.txt
 	touch $@

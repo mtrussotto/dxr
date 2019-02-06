@@ -22,5 +22,6 @@
 .dxr_installed
 .npm_installed
 .requirements_installed
+.requirements_patched
 /venv
 /*.egg
