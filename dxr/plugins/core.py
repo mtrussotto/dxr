@@ -337,9 +337,11 @@ class TrackedFilter(Filter):
     """Substring filter for file names"""
     name = 'tracked'
     domain = FILE
-    description = Markup('File to search within. <code>*</code>, '
-                         '<code>?</code>, and <code>[...]</code> act as shell '
-                         'wildcards.')
+    description = Markup('Presence or absence of file in version control. '
+                         'Use <code>false</code>, <code>no</code> or '
+                         '<code>0</code> to select untracked files, '
+                         '<code>true</code>, <code>yes</code> or '
+                         '<code>1</code> for tracked files')
 
     @negatable
     def filter(self):
