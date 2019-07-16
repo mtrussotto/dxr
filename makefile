@@ -127,6 +127,7 @@ dxr/static_unhashed/js/templates.js: dxr/templates/nunjucks/*.html \
 	touch $@
 
 .requirements_patched: .requirements_installed
+	-patch --reject-file - --reverse --fuzz=0 -d $(VIRTUAL_ENV) -p2 < tooling/pyelasticsearch_for_es5.patch > /dev/null
 	patch --forward --fuzz=0 -d $(VIRTUAL_ENV) -p2 < tooling/pyelasticsearch_for_es5.patch
 	. $(VIRTUAL_ENV)/bin/activate && ./tooling/pipstrap.py
 	$(VIRTUAL_ENV)/bin/pip install --require-hashes -r requirements.txt
