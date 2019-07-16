@@ -305,4 +305,4 @@ def plugins_named(names):
 
     """
     plugins = all_plugins()
-    return (plugins[name] for name in names)
+    return (plugins[name] for name in names if name in plugins)
