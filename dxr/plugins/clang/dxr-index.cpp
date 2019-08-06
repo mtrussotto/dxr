@@ -27,6 +27,8 @@
   (CLANG_VERSION_MAJOR > (major) || \
    (CLANG_VERSION_MAJOR == (major) && CLANG_VERSION_MINOR >= (minor)))
 
+#define CSV_MAX_FIELD_SIZE 131072
+
 using namespace clang;
 
 namespace {
@@ -1172,6 +1174,13 @@ public:
       sm.getFileOffset(nameStart);
     const char *contents = sm.getCharacterData(nameStart);
     unsigned int nameLen = MacroNameTok.getIdentifierInfo()->getLength();
+    if (length >= CSV_MAX_FIELD_SIZE) {
+        DiagnosticsEngine &D = ci.getDiagnostics();
+        unsigned DiagID = D.getCustomDiagID(DiagnosticsEngine::Warning,
+                                            "Macro '%0' is too long.");
+        D.Report(nameStart, DiagID).AddString(std::string(contents, nameLen));
+        return;
+    }
     unsigned int argsStart = 0, argsEnd = 0, defnStart;
 
     // Grab the macro arguments if it has some
