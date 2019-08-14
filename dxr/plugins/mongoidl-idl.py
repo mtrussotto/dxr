@@ -19,8 +19,8 @@ def __makedirs(path):
 
 def __metapath(path):
     path = os.path.realpath(path)
-    print(path);
-    print(__source_folder);
+#    print(path);
+#    print(__source_folder);
     if path.startswith(__source_folder):
         path = path[len(__source_folder):]
     if path[0] == os.path.sep:
