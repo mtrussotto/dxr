@@ -193,16 +193,21 @@ class TreeToIndex(TreeToIndexBase):
         """
         tree = self.tree
         plugin_folder = os.path.dirname(__file__)
+        clang_version = getattr(self.plugin_config, 'clang_version', '')
+        clang_suffix = ""
+        if clang_version:
+            clang_suffix = "-" + clang_version
+            
         flags = [
-            '-load', os.path.join(plugin_folder, 'libclang-index-plugin.so'),
+            '-load', os.path.join(plugin_folder, 'libclang%s-index-plugin.so' % clang_version),
             '-add-plugin', 'dxr-index',
             '-plugin-arg-dxr-index', tree.source_folder
         ]
         flags_str = " ".join(imap('-Xclang {}'.format, flags))
 
         env = {
-            'CC': "clang %s" % flags_str,
-            'CXX': "clang++ %s" % flags_str,
+            'CC': "clang%s %s" % (clang_suffix, flags_str),
+            'CXX': "clang++%s %s" % (clang_suffix, flags_str),
             'DXR_CLANG_FLAGS': flags_str,
             'DXR_CXX_CLANG_OBJECT_FOLDER': tree.object_folder,
             'DXR_CXX_CLANG_TEMP_FOLDER': self._temp_folder,

@@ -105,8 +105,10 @@ endif
 # Install Python requirements:
 requirements: $(VIRTUAL_ENV)/bin/activate .requirements_installed .requirements_patched
 
+CLANG_CXX_VERSIONS = clang++ clang++-7
 plugins:
-	$(MAKE) -C dxr/plugins/clang
+	$(foreach CLANG_CXX, $(CLANG_CXX_VERSIONS),\
+		$(MAKE) -C dxr/plugins/clang CLANG_CXX=$(CLANG_CXX);)
 	$(MAKE) -C dxr/plugins/js
 
 dxr/static_unhashed/js/templates.js: dxr/templates/nunjucks/*.html \

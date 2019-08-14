@@ -9,10 +9,14 @@ elasticsearch as a post-processing phase.
 from dxr.plugins import Plugin, filters_from_namespace, refs_from_namespace
 from dxr.plugins.clang import direct, filters, menus
 from dxr.plugins.clang.indexers import TreeToIndex, mappings
+from schema import Optional
 
 
 plugin = Plugin(filters=filters_from_namespace(filters.__dict__),
                 tree_to_index=TreeToIndex,
+                config_schema = {
+                    Optional('clang_version'): str
+                },
                 mappings=mappings,
                 badge_colors={'c': '#F4FAAA'},
                 direct_searchers=direct.searchers,
