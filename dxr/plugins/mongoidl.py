@@ -68,7 +68,7 @@ class FileToIndex(FileToIndexBase):
         self._has_data = os.path.exists(metapath);
         self._links = dict()
         if self._has_data:
-            sys.stderr.write("File to index = " + self.path + "\n")
+#            sys.stderr.write("File to index = " + self.path + "\n")
             for line in open(metapath):
                 kv = line.rstrip("\r\n").split(':', 1);
                 title = None
@@ -91,7 +91,7 @@ class FileToIndex(FileToIndexBase):
     def links(self):
         """Add a link TBD.
         """
-        print "RETURNING " + str(self._links.values())
+#        print "RETURNING " + str(self._links.values())
         return self._links.values()
         # yield (4,
         #        dual_exts.title,
