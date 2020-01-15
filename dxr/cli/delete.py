@@ -1,9 +1,9 @@
 from click import ClickException, command, echo, option
-from pyelasticsearch import ElasticSearch, ElasticHttpNotFoundError
+from elasticsearch import Elasticsearch, NotFoundError as ElasticHttpNotFoundError
 
 from dxr.cli.utils import config_option, tree_names_argument
 from dxr.config import FORMAT
-from dxr.es import TREE
+from dxr.es import TREE, host_urls_to_dicts
 
 
 @command()
@@ -23,16 +23,16 @@ def delete(config, tree_names, all, force):
     this runs under.
 
     """
-    es = ElasticSearch(config.es_hosts)
+    es = Elasticsearch(host_urls_to_dicts(config.es_hosts))
     if all:
         echo('Deleting catalog...')
-        es.delete_index(config.es_catalog_index)
+        es.indices.delete(index=config.es_catalog_index)
         # TODO: Delete tree indices as well.
     else:
         for tree_name in tree_names:
             frozen_id = '%s/%s' % (FORMAT, tree_name)
             try:
-                frozen = es.get(config.es_catalog_index, TREE, frozen_id)
+                frozen = es.get(index=config.es_catalog_index, doc_type=TREE, id=frozen_id)
             except ElasticHttpNotFoundError:
                 raise ClickException('No tree "%s" in catalog.' % tree_name)
             # Delete the index first. That way, if that fails, we can still
@@ -40,8 +40,8 @@ def delete(config, tree_names, all, force):
             # infrequent enough that we wouldn't avoid a race around a
             # catalogued but deleted instance the other way around.
             try:
-                es.delete_index(frozen['_source']['es_alias'])
+                es.indices.delete(index=frozen['_source']['es_alias'])
             except ElasticHttpNotFoundError:
                 # It's already gone. Fine. Just remove the catalog entry.
                 pass
-            es.delete(config.es_catalog_index, TREE, frozen_id)
+            es.delete(index=config.es_catalog_index, doc_type=TREE, id=frozen_id)

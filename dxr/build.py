@@ -17,13 +17,16 @@ from concurrent.futures import as_completed, ProcessPoolExecutor
 from click import progressbar
 from flask import current_app
 from funcy import ichunks, first
-from pyelasticsearch import (ElasticSearch, IndexAlreadyExistsError,
-                             ElasticHttpNotFoundError, bulk_chunks, Timeout,
+from elasticsearch import (Elasticsearch,
+                             NotFoundError as ElasticHttpNotFoundError,
                              ConnectionError)
+import elasticsearch.helpers
+from urllib3.exceptions import TimeoutError
 
 from dxr.app import make_app, dictify_links
 from dxr.config import FORMAT
-from dxr.es import UNINDEXED_STRING, UNANALYZED_STRING, TREE, create_index_and_wait
+from dxr.es import (UNINDEXED_STRING, UNANALYZED_STRING, TREE, create_index_and_wait,
+                    host_urls_to_dicts, index_op, IndexAlreadyExistsError)
 from dxr.exceptions import BuildError
 from dxr.filters import LINE, FILE
 from dxr.lines import es_lines, finished_tags
@@ -56,7 +59,7 @@ def index_and_deploy_tree(tree, verbose=False):
 
     """
     config = tree.config
-    es = ElasticSearch(config.es_hosts,
+    es = Elasticsearch(host_urls_to_dicts(config.es_hosts),
                        timeout=config.es_indexing_timeout,
                        max_retries=config.es_indexing_retries)
     index_name = index_tree(tree, es, verbose=verbose)
@@ -120,9 +123,9 @@ def deploy_tree(tree, es, index_name):
 
     # Insert or update the doc representing this tree. There'll be a little
     # race between this and the alias swap. We'll live.
-    es.index(config.es_catalog_index,
+    es.index(index=config.es_catalog_index,
              doc_type=TREE,
-             doc=dict(name=tree.name,
+             body=dict(name=tree.name,
                       format=FORMAT,
                       es_alias=alias,
                       description=tree.description,
@@ -140,18 +143,19 @@ def swap_alias(alias, index, es):
     # Get the index the alias currently points to.
     old_index = None;
     try:
-        old_index = first(es.get_alias(alias=alias))
+        old_index = first(es.indices.get_alias(name=alias))
     except ElasticHttpNotFoundError:
         pass
 
     # Make the alias point to the new index.
     removal = ([{'remove': {'index': old_index, 'alias': alias}}] if
                old_index else [])
-    es.update_aliases(removal + [{'add': {'index': index, 'alias': alias}}])  # atomic
+    res= es.indices.update_aliases(
+        body={'actions': removal + [{'add': {'index': index, 'alias': alias}}]})  # atomic
 
     # Delete the old index.
     if old_index:
-        es.delete_index(old_index)
+        es.indices.delete(index=old_index)
 
 
 def index_tree(tree, es, verbose=False):
@@ -189,7 +193,7 @@ def index_tree(tree, es, verbose=False):
 
         """
         try:
-            es.delete_index(index)
+            es.indices.delete(index=index)
         except Exception:
             pass
 
@@ -279,15 +283,15 @@ def index_tree(tree, es, verbose=False):
             with aligned_progressbar(repeat(None), label='Refreshing index') as bar:
                 for _ in bar:
                     try:
-                        es.refresh(index=index)
-                    except (ConnectionError, Timeout) as exc:
+                        es.indices.refresh(index=index)
+                    except (ConnectionError, TimeoutError) as exc:
                         pass
                     else:
                         break
 
-            es.update_settings(
-                index,
-                {
+            es.indices.put_settings(
+                index=index,
+                body={
                     'settings': {
                         'index': {
                             'number_of_replicas': 1  # fairly arbitrary
@@ -518,7 +522,7 @@ def index_file(tree, tree_indexers, path, es, index, log=None):
         links = dictify_links(chain.from_iterable(linkses))
         if links:
             doc['links'] = links
-        yield es.index_op(doc, doc_type=FILE)
+        yield index_op(doc, doc_type=FILE, index=index)
 
         # Index all the lines.
         if index_by_line:
@@ -543,14 +547,13 @@ def index_file(tree, tree_indexers, path, es, index, log=None):
                     total['regions'] = refs_and_regions['regions']
                 if annotations_for_this_line:
                     total['annotations'] = annotations_for_this_line
-                yield es.index_op(total)
+                yield index_op(total, index=index, doc_type=LINE)
 
                 # Because needles_by_line holds a reference, total is not
                 # garbage collected. Since we won't use it again, we can clear
                 # the contents, saving substantial memory on long files.
                 total.clear()
     return docs()
-
 
 
 def index_chunk(tree,
@@ -577,8 +580,7 @@ def index_chunk(tree,
                 log = (worker_number and
                        open_log(tree.log_folder,
                                 'index-chunk-%s.log' % worker_number))
-                for chunk in bulk_chunks(chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), docs_per_chunk=None, bytes_per_chunk=10000000):
-                    es.bulk(chunk, index=index, doc_type=LINE)
+                elasticsearch.helpers.bulk(es, chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), chunk_size=500, max_chunk_bytes=10000000)
                 log and log.write('Finished chunk.\n')
             finally:
                 log and log.close()
@@ -604,7 +606,7 @@ def index_folders(tree, index, es):
             needles = {'is_folder': True}
             for name, folder_to_index in folder_indexers:
                 needles.update(dict(folder_to_index(name, tree, folder).needles()))
-            es.index(index, FILE, needles)
+            es.index(index=index, doc_type=FILE, body=needles)
 
 
 def index_files(tree, tree_indexers, index, pool, es):

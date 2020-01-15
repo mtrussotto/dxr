@@ -11,11 +11,11 @@ from mimetypes import guess_type
 from flask import (Blueprint, Flask, current_app, send_file, request, redirect,
                    jsonify, render_template, url_for)
 from funcy import merge
-from pyelasticsearch import ElasticSearch
+from elasticsearch import Elasticsearch
 from werkzeug.exceptions import NotFound
 
 from dxr.es import (filtered_query, frozen_config, frozen_configs,
-                    es_alias_or_not_found)
+                    es_alias_or_not_found, host_urls_to_dicts)
 from dxr.exceptions import BadTerm
 from dxr.filters import FILE, LINE
 from dxr.lines import html_line, tags_per_line, finished_tags, Ref, Region
@@ -107,7 +107,7 @@ def make_app(config):
     app.logger.addHandler(StreamHandler(stderr))
 
     # Make an ES connection pool shared among all threads:
-    app.es = ElasticSearch(config.es_hosts)
+    app.es = Elasticsearch(host_urls_to_dicts(config.es_hosts))
 
     return app
 
@@ -116,6 +116,9 @@ def make_app(config):
 def index():
     return redirect(url_for('.browse',
                             tree=current_app.dxr_config.default_tree))
+
+def _do_search(es, query, **kwargs):
+    return es.search(**dict(kwargs, body=query))
 
 
 @dxr_blueprint.route('/<tree>/search')
@@ -133,7 +136,7 @@ def search(tree):
     limit = min(non_negative_int(req.get('limit'), 100), 1000)
 
     # Make a Query:
-    query = Query(partial(current_app.es.search,
+    query = Query(partial(_do_search, current_app.es,
                           index=frozen['es_alias']),
                   query_text,
                   plugins_named(frozen['enabled_plugins']))
@@ -258,7 +261,7 @@ def raw(tree, path):
         }
     }
     results = current_app.es.search(
-            query,
+            body=query,
             index=es_alias_or_not_found(tree),
             doc_type=FILE,
             size=1)
@@ -297,7 +300,7 @@ def lines(tree):
     to_line = int(req.get('end', ''))
     ctx_found = []
     possible_hits = current_app.es.search(
-            {
+            body={
                 'query' : {
                     'bool': {
                         'filter': [
