@@ -1,11 +1,11 @@
 from click import command, echo, secho
 from itertools import izip
-from pyelasticsearch import ElasticSearch
+from elasticsearch import Elasticsearch
 from tabulate import tabulate
 
 from dxr.cli.utils import config_option
 from dxr.config import FORMAT
-from dxr.es import TREE, sources
+from dxr.es import TREE, sources, host_urls_to_dicts
 
 
 @command()
@@ -19,14 +19,14 @@ def list(config):
     secho('Current format: %s' % FORMAT, fg='green')
     echo('Catalog: %s\n' % config.es_catalog_index)
 
-    es = ElasticSearch(config.es_hosts)
+    es = Elasticsearch(host_urls_to_dicts(config.es_hosts))
     query = {
         'query': {
             'match_all': {}
         },
         'sort': ['name', 'format']
     }
-    catalog_docs = sources(es.search(query,
+    catalog_docs = sources(es.search(body=query,
                                      index=config.es_catalog_index,
                                      doc_type=TREE,
                                      size=10000)['hits']['hits'])

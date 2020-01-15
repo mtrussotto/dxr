@@ -13,7 +13,7 @@ import unittest
 
 from flask import url_for
 from nose.tools import eq_, ok_
-from pyelasticsearch import ElasticSearch
+from elasticsearch import Elasticsearch
 
 try:
     from nose.tools import assert_in
@@ -39,7 +39,7 @@ class TestCase(unittest.TestCase):
         """Create a temporary DXR instance on the FS, and build it."""
         cls.generate()
         cls.index()
-        cls._es().refresh()
+        cls._es().indices.refresh()
 
     @classmethod
     def teardown_class(cls):
@@ -254,7 +254,7 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     def _es(cls):
-        return ElasticSearch('http://127.0.0.1:9200/')
+        return Elasticsearch(['127.0.0.1:9200'])
 
     @classmethod
     def _delete_es_indices(cls):
@@ -266,7 +266,7 @@ class TestCase(unittest.TestCase):
         """
         # When you delete an index, any alias to it goes with it.
         # This takes care of the test catalog as well.
-        cls._es().delete_index('dxr_test_{config_path_hash}_*'.format(
+        cls._es().indices.delete(index='dxr_test_{config_path_hash}_*'.format(
             config_path_hash=cls.config().path_hash()))
 
 
