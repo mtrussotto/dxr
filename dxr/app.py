@@ -15,7 +15,7 @@ from elasticsearch import Elasticsearch
 from werkzeug.exceptions import NotFound
 
 from dxr.es import (filtered_query, frozen_config, frozen_configs,
-                    es_alias_or_not_found, host_urls_to_dicts)
+                    es_alias_or_not_found, host_urls_to_dicts, DOCTYPE)
 from dxr.exceptions import BadTerm
 from dxr.filters import FILE, LINE
 from dxr.lines import html_line, tags_per_line, finished_tags, Ref, Region
@@ -117,8 +117,30 @@ def index():
     return redirect(url_for('.browse',
                             tree=current_app.dxr_config.default_tree))
 
-def _do_search(es, query, **kwargs):
-    return es.search(**dict(kwargs, body=query))
+def _add_type(query, doc_type):
+    import sys
+    if len(query) != 1:
+        raise BadTerm("Query has more than one term: " + str(query))
+    if 'bool' not in query:
+        query = { 'bool': {
+            'should' : query,
+            'filter': {'term': {DOCTYPE : doc_type}}}}
+    elif 'filter' not in query['bool']:
+        query['bool']['filter'] = {'term': {DOCTYPE : doc_type}}
+    elif isinstance(query['bool']['filter'], list):
+        query['bool']['filter'].append({'term': {DOCTYPE : doc_type}})
+    else:
+        query['bool']['filter'] = [query['bool']['filter'], {'term': {DOCTYPE : doc_type}}]
+        
+    return query
+
+def _do_search(es, body, **kwargs):
+    import sys
+    if 'doc_type' in kwargs:
+        
+        body['query'] = _add_type(body['query'], kwargs['doc_type'])
+        del kwargs['doc_type']
+    return es.search(**dict(kwargs, body=body))
 
 
 @dxr_blueprint.route('/<tree>/search')
@@ -252,18 +274,20 @@ def raw(tree, path):
     query = {
         'query' : {
             'bool' : {
-                'filter': {
-                    'term': {
+                'filter': [
+                    {'term': {
+                        DOCTYPE : FILE
+                    }},
+                    {'term': {
                         'path': path
-                    }
-                }
+                    }}
+                ]
             }
         }
     }
     results = current_app.es.search(
             body=query,
             index=es_alias_or_not_found(tree),
-            doc_type=FILE,
             size=1)
     try:
         # we explicitly get index 0 because there should be exactly 1 result
@@ -304,6 +328,7 @@ def lines(tree):
                 'query' : {
                     'bool': {
                         'filter': [
+                            {'term': {DOCTYPE : LINE}},
                             {'term': {'path': path}},
                             {'range': {'number': {'gte': from_line, 'lte': to_line}}}
                         ]
@@ -313,7 +338,6 @@ def lines(tree):
                 'sort': ['number']
             },
             size=max(0, to_line - from_line + 1), # keep it non-negative
-            doc_type=LINE,
             index=es_alias_or_not_found(tree))
     if 'hits' in possible_hits and len(possible_hits['hits']['hits']) > 0:
         for hit in possible_hits['hits']['hits']:

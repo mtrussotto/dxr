@@ -93,8 +93,10 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     def config(cls):
-        return Config(cls.config_input(cls._config_dir_path),
+        x = Config(cls.config_input(cls._config_dir_path),
                       relative_to=cls._config_dir_path)
+        x.es_hosts = 'http://127.0.0.1:9400/'
+        return x
 
     @classmethod
     def config_input(cls, config_dir_path):
@@ -111,7 +113,7 @@ class TestCase(unittest.TestCase):
                 'temp_folder': '{0}/temp'.format(config_dir_path),
                 'es_index': 'dxr_test_{config_path_hash}_{format}_{tree}_{unique}',
                 'es_alias': 'dxr_test_{config_path_hash}_{format}_{tree}',
-                'es_catalog_index': 'dxr_test_{config_path_hash}_catalog'
+                'es_catalog_index': 'dxr_test_{config_path_hash}_catalog',
             },
             'code': {
                 'source_folder': '{0}/code'.format(config_dir_path),
@@ -254,7 +256,7 @@ class TestCase(unittest.TestCase):
 
     @classmethod
     def _es(cls):
-        return Elasticsearch(['127.0.0.1:9200'])
+        return Elasticsearch(['127.0.0.1:9400'])
 
     @classmethod
     def _delete_es_indices(cls):
