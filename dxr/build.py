@@ -26,7 +26,7 @@ from urllib3.exceptions import TimeoutError
 from dxr.app import make_app, dictify_links
 from dxr.config import FORMAT
 from dxr.es import (UNINDEXED_STRING, UNANALYZED_STRING, TREE, create_index_and_wait,
-                    host_urls_to_dicts, index_op, IndexAlreadyExistsError)
+                    host_urls_to_dicts, index_op, remove_mapping_types, index_with_type, IndexAlreadyExistsError)
 from dxr.exceptions import BuildError
 from dxr.filters import LINE, FILE
 from dxr.lines import es_lines, finished_tags
@@ -96,7 +96,10 @@ def deploy_tree(tree, es, index_name):
                         'max_result_window' : 1000000  # because the app wants that
                     },
                 },
-                'mappings': {
+                # Since there's only one doc_type from the catalog, this could be done by
+                # removing types entirely instead of making them a field.  But the catalog
+                # is small so I leave them for consistency.
+                'mappings': remove_mapping_types({
                     TREE: {
                         '_all': {
                             'enabled': False
@@ -116,14 +119,14 @@ def deploy_tree(tree, es, index_name):
                             # configuration here.
                         }
                     }
-                }
+                })
             })
     except IndexAlreadyExistsError:
         pass
 
     # Insert or update the doc representing this tree. There'll be a little
     # race between this and the alias swap. We'll live.
-    es.index(index=config.es_catalog_index,
+    index_with_type(es, index=config.es_catalog_index,
              doc_type=TREE,
              body=dict(name=tree.name,
                       format=FORMAT,
@@ -252,10 +255,10 @@ def index_tree(tree, es, verbose=False):
                         'refresh_interval':
                             '%is' % config.es_refresh_interval
                     },
-                    'mappings': reduce(deep_update,
+                    'mappings': remove_mapping_types(reduce(deep_update,
                                        (p.mappings for p in
                                             tree.enabled_plugins),
-                                       {})
+                                       {}))
                 })
         else:
             index = None
@@ -613,7 +616,7 @@ def index_folders(tree, index, es):
             needles = {'is_folder': True}
             for name, folder_to_index in folder_indexers:
                 needles.update(dict(folder_to_index(name, tree, folder).needles()))
-            es.index(index=index, doc_type=FILE, body=needles)
+            index_with_type(es, index=index, doc_type=FILE, body=needles)
 
 
 def index_files(tree, tree_indexers, index, pool, es):

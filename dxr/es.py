@@ -8,6 +8,7 @@ from six.moves.urllib.parse import urlparse
 import certifi
 
 from dxr.config import FORMAT
+from dxr.utils import deep_update
 
 
 UNINDEXED_STRING = {
@@ -37,6 +38,7 @@ UNINDEXED_LONG = {
 
 TREE = 'tree'  # 'tree' doctype
 
+DOCTYPE = 'dxr_type'  # Replacement for DXR doctype field
 
 def frozen_configs():
     """Return a list of dicts, each describing a tree of the current format
@@ -57,8 +59,7 @@ def frozen_config(tree_name):
     """
     try:
         frozen = current_app.es.get(index=current_app.dxr_config.es_catalog_index,
-                                    doc_type=TREE,
-                                    id='%s/%s' % (FORMAT, tree_name))
+                                    id='%s/%s/%s' % (TREE, FORMAT, tree_name))
         return frozen['_source']
     except (ElasticHttpNotFoundError, KeyError):
         # If nothing is found, we still get a hash, but it has no _source key.
@@ -87,9 +88,11 @@ def filtered_query_hits(index, doc_type, filter, sort=None, size=1, include=None
     query = {
         'query': {
             'bool' : {
-                'filter': {
-                    'term': filter
-                }
+                'filter': [{
+                    'term': filter 
+                },{
+                    'term' : {DOCTYPE: doc_type}
+                }]
             }
         }
     }
@@ -102,19 +105,52 @@ def filtered_query_hits(index, doc_type, filter, sort=None, size=1, include=None
     return current_app.es.search(
         body=query,
         index=index,
-        doc_type=doc_type,
         size=size)['hits']['hits']
 
 
 class IndexAlreadyExistsError(RequestError):
     """Exception raised on an attempt to create an index that already exists"""
 
+def merge_properties(dest, source):
+    for k,v in source.iteritems():
+        if k in dest:
+            if v != dest[k]:
+                raise TypeError("Can't merge value %r into %r for key %r." %
+                                (dest[k], v, k))
+        else:
+            dest[k] = v
+    return dest
+            
+def merge_mappings(dest, source):
+    for k,v in source.iteritems():
+        if k == "properties":
+            dest[k] = merge_properties(dest.get(k, {}), v)
+        elif k == "_all":
+            pass
+        elif k in dest:
+            if v != dest[k]:
+                raise TypeError("Can't merge value %r into %r for key %r." %
+                                (dest[k], v, k))
+        else:
+            dest[k] = v
+    if "_all" in dest:
+        del dest["_all"]
+    return dest
+        
+def remove_mapping_types(mapping) :
+    """Combine all mapping types, add a field for the type name. 
+    To handle ElasticSearch removing the doc_type feature"""
+    merged = reduce(merge_mappings, (m for m in mapping.values()), {})
+    merged["properties"][DOCTYPE] = UNANALYZED_STRING
+    return merged
+
 def create_index_and_wait(es, index, settings=None):
     """Create a new index, and wait for all shards to become ready."""
     try:
         es.indices.create(index=index, body=settings)
     except RequestError as re:
-        if re.error == "index_already_exists_exception":
+        if (re.error == "index_already_exists_exception" or
+            re.error == "resource_already_exists_exception"):
             raise IndexAlreadyExistsError(re)
         raise
         
@@ -152,7 +188,20 @@ def index_op(doc, doc_type=None, index=None):
     op = dict()
     op["_source"] = doc
     if doc_type is not None:
-        op["_type"] = doc_type
+        op["_source"][DOCTYPE] = doc_type
     if index is not None:
         op["_index"] = index
     return op
+
+def index_with_type(es, **kwargs):
+    if 'doc_type' in kwargs:
+        doc_type = kwargs['doc_type']
+        if 'body' not in kwargs:
+            raise TypeError("No place to put doc_type %s; no body" %
+                            doc_type)
+        if 'id' in kwargs:
+            kwargs['id'] = doc_type + "/" + kwargs['id']
+        kwargs['body'][DOCTYPE] = doc_type
+        del kwargs['doc_type']
+    return es.index(**kwargs)
+    

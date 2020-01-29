@@ -157,6 +157,8 @@ class Query(object):
              'size': limit},
             doc_type=LINE if is_line_query else FILE)['hits']
         result_count = results['total']
+        if isinstance(result_count, dict):
+            result_count = result_count["value"]
         results = [r['_source'] for r in results['hits']]
 
         path_highlighters = [f.highlight_path for f in chain.from_iterable(filters)
