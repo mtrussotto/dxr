@@ -580,7 +580,7 @@ def index_chunk(tree,
                 log = (worker_number and
                        open_log(tree.log_folder,
                                 'index-chunk-%s.log' % worker_number))
-                elasticsearch.helpers.bulk(es, chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), chunk_size=500, max_chunk_bytes=10000000)
+                elasticsearch.helpers.bulk(es, chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), chunk_size=500, max_chunk_bytes=10000000, request_timeout=300)
                 log and log.write('Finished chunk.\n')
             finally:
                 log and log.close()
