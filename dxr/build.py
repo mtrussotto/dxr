@@ -577,7 +577,7 @@ def index_chunk(tree,
                 log = (worker_number and
                        open_log(tree.log_folder,
                                 'index-chunk-%s.log' % worker_number))
-                for chunk in bulk_chunks(chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), docs_per_chunk=None, bytes_per_chunk=10000000):
+                for chunk in bulk_chunks(chain.from_iterable(index_file(tree, tree_indexers,path, es, index) for path in paths), docs_per_chunk=None, bytes_per_chunk=5000000):
                     es.bulk(chunk, index=index, doc_type=LINE)
                 log and log.write('Finished chunk.\n')
             finally:
