@@ -214,6 +214,7 @@ class TreeConfig(DotSectionWrapper):
         self.name = name
 
         schema = Schema({
+            Optional('vcs_update_command', default=None): basestring,
             Optional('build_command', default='make -j {workers}'): basestring,
             Optional('clean_command', default='make clean'): basestring,
             Optional('description', default=''): basestring,

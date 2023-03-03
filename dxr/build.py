@@ -212,10 +212,16 @@ def index_tree(tree, es, verbose=False):
         ensure_folder(join(tree.temp_folder, 'plugins', plugin.name),
                       not skip_cleanup)
 
-    vcs_cache = VcsCache(tree)
-    tree_indexers = [p.tree_to_index(p.name, tree, vcs_cache) for p in
-                     tree.enabled_plugins if p.tree_to_index]
     try:
+        # If building, also update tree from version control
+        index = None
+        if not skip_build:
+            update_tree_from_vcs(tree, verbose)
+
+        vcs_cache = VcsCache(tree)
+        tree_indexers = [p.tree_to_index(p.name, tree, vcs_cache) for p in
+                     tree.enabled_plugins if p.tree_to_index]
+        
         if not skip_indexing:
             # Substitute the format, tree name, and uuid into the index identifier.
             index = tree.es_index.format(format=FORMAT,
@@ -650,6 +656,35 @@ def _fill_and_write_template(jinja_env, template_name, out_path, vars):
     template = jinja_env.get_template(template_name)
     template.stream(**vars).dump(out_path, encoding='utf-8')
 
+
+def update_tree_from_vcs(tree, verbose):
+    """Run a command to update the tree from the version control system"""
+    if not tree.vcs_update_command:
+        return
+
+    environ = os.environ.copy()
+    
+    # Call pull or whatever:
+    with open_log(tree.log_folder, 'vcs_update.log', verbose) as log:
+        print 'Updating tree from version control'
+        r = subprocess.call(
+            tree.vcs_update_command,
+            shell   = True,
+            stdout  = log,
+            stderr  = log,
+            env     = environ,
+            cwd     = tree.object_folder
+        )
+
+    # Abort if build failed:
+    if r != 0:
+        print >> sys.stderr, ("Build command for '%s' failed, exited non-zero."
+                              % tree.name)
+        if not verbose:
+            print >> sys.stderr, 'Log follows:'
+            with open(log.name) as log_file:
+                print >> sys.stderr, '    | %s ' % '    | '.join(log_file)
+        raise BuildError
 
 def build_tree(tree, tree_indexers, verbose):
     """Set up env vars, and run the build command."""
