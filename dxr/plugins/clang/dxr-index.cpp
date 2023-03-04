@@ -29,6 +29,11 @@
 
 #define CSV_MAX_FIELD_SIZE 131072
 
+#if CLANG_AT_LEAST(8, 0)
+#define getLocStart getBeginLoc
+#define getLocEnd getEndLoc
+#endif
+
 using namespace clang;
 
 namespace {
@@ -199,6 +204,12 @@ private:
     std::string filenamestr(filename);
     return getFileInfo(filenamestr);
   }
+#if CLANG_AT_LEAST(12, 0)
+  // Not sure what clang version this actually became necessary in.
+  const FileInfoPtr &getFileInfo(llvm::StringRef filename) {
+    return getFileInfo(filename.str());
+  }
+#endif
 public:
   IndexConsumer(CompilerInstance &ci)
     : ci(ci), sm(ci.getSourceManager()), features(ci.getLangOpts()),
@@ -249,7 +260,7 @@ public:
     // et al. On the other hand, if I just do spelling, I get really wrong
     // values for locations in macros, especially when ## is involved.
     // TODO: So yeah, maybe use sm.getFilename(loc) instead.
-    std::string filename = sm.getPresumedLoc(loc).getFilename();
+    auto filename = sm.getPresumedLoc(loc).getFilename();
     // Invalid locations and built-ins: not interesting at all
     if (filename[0] == '<')
       return false;
@@ -324,7 +335,7 @@ public:
         decl = def;
     }
 
-    const std::string &filename = sm.getFilename(decl->getLocation());
+    const auto &filename = sm.getFilename(decl->getLocation());
     return getFileInfo(filename)->realname;
   }
 
@@ -438,6 +449,15 @@ public:
     }
     *out << value.substr(start) << "\"";
   }
+#if CLANG_AT_LEAST(12, 0)
+  // Not sure what clang version this actually became necessary in.
+  void recordValue(const char *key, llvm::StringRef value) {
+      recordValue(key, value.str());
+  }
+  void recordValue(const char *key, const char* value) {
+      recordValue(key, std::string(value));
+  }
+#endif
 
   // If we're in a macro definition or even a stack of macros that all call
   // each other, walk up out that mess, back to the place that called the

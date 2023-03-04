@@ -11,7 +11,7 @@ ifeq ($(LLVM_LDFLAGS),)
 $(error Could not run $(LLVM_CONFIG).  Please make sure it is available on your PATH \
 or specify the absolute path of the llvm-config executable in the LLVM_CONFIG environment variable)
 endif
-CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -std=c++11 -Wall -Wno-strict-aliasing $(if $(DEBUG),-O0 -g)
+CXXFLAGS := $(shell ${LLVM_CONFIG} --cxxflags) -Wall -Wno-strict-aliasing $(if $(DEBUG),-O0 -g) -fPIC -O2
 LDFLAGS := -fPIC -g -Wl,-R -Wl,'$$ORIGIN' $(LLVM_LDFLAGS) -shared
 BUILD_DIR_PREFIX = BUILD
 BUILD_DIR = $(subst clang++,$(BUILD_DIR_PREFIX),$(CLANG_CXX))
