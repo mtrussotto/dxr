@@ -113,7 +113,7 @@ class Config(DotSection):
                         AbsPath,
                     Optional('workers', default=if_raises(NotImplementedError,
                                                           cpu_count,
-                                                          1)):
+                                                          2) / 2):
                         WORKERS_VALIDATOR,
                     Optional('skip_stages', default=[]): WhitespaceList,
                     Optional('www_root', default=''): Use(lambda v: v.rstrip('/')),
