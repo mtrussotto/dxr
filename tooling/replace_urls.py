@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python2
 """Replace unhashed URLs in a stylesheet with hashed ones::
 
     replace_urls.py <mapping file> <CSS file> > <new CSS file>
