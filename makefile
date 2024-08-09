@@ -105,7 +105,7 @@ endif
 # Install Python requirements:
 requirements: $(VIRTUAL_ENV)/bin/activate .requirements_installed .requirements_patched
 
-CLANG_CXX_VERSIONS = clang++ clang++-8 clang++-12
+CLANG_CXX_VERSIONS = clang++ clang++-12
 plugins:
 	$(foreach CLANG_CXX, $(CLANG_CXX_VERSIONS),\
 		$(MAKE) -C dxr/plugins/clang CLANG_CXX=$(CLANG_CXX);)
