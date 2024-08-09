@@ -551,7 +551,8 @@ public:
       // succeeds only if it doesn't exist."
       int fd = open(filename.c_str(), O_WRONLY | O_CREAT | O_EXCL, 0644);
       if (fd != -1) {
-        write(fd, content.c_str(), content.length());
+        // if-statement is to suppress warning.
+        if (write(fd, content.c_str(), content.length())) {}
         close(fd);
       }
     }
@@ -729,7 +730,11 @@ public:
         }
       }
     } else if (EnumConstantDecl *ecd = dyn_cast<EnumConstantDecl>(d)) {
+#if CLANG_AT_LEAST(13, 0)
+      return toString(ecd->getInitVal(), 10);
+#else
       return ecd->getInitVal().toString(10);
+#endif
     }
     return std::string();
   }
