@@ -126,6 +126,7 @@ dxr/static_unhashed/js/templates.js: dxr/templates/nunjucks/*.html \
 .requirements_installed: $(VIRTUAL_ENV)/bin/activate requirements.txt
 	. $(VIRTUAL_ENV)/bin/activate && ./tooling/pipstrap.py
 	$(VIRTUAL_ENV)/bin/pip install --require-hashes -r requirements.txt
+	. $(VIRTUAL_ENV)/bin/activate && nodeenv -n 8.11.3 -p
 	touch $@
 
 .requirements_patched: .requirements_installed
