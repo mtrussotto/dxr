@@ -576,6 +576,7 @@ def index_chunk(tree,
     path = '(no file yet)'
     try:
         # So we can use Flask's url_from():
+        log = None
         with make_app(tree.config).test_request_context():
             es = current_app.es
             try:
