@@ -18,7 +18,9 @@ def __makedirs(path):
             raise
 
 def __metapath(path):
-    path = os.path.realpath(path)
+    rpath = os.path.realpath(path)
+    if ".cache/bazel" not in rpath:
+        path = rpath
 #    print(path);
 #    print(__source_folder);
     if path.startswith(__source_folder):
