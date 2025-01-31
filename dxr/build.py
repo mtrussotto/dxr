@@ -355,7 +355,7 @@ def ensure_folder(folder, clean=False):
         makedirs(folder)
 
 
-def _unignored_folders(folders, source_path, ignore_filenames, ignore_paths):
+def _unignored_folders(folders, root, source_path, ignore_filenames, ignore_paths, accept_symlink_paths=[]):
     """Yield the folders from ``folders`` which are not ignored by the given
     patterns and paths.
 
@@ -366,8 +366,12 @@ def _unignored_folders(folders, source_path, ignore_filenames, ignore_paths):
     """
     for folder in folders:
         if not any(fnmatchcase(folder, p) for p in ignore_filenames):
-            folder_path = '/' + join(source_path, folder).replace(os.sep, '/') + '/'
-            if not any(fnmatchcase(folder_path, p) for p in ignore_paths):
+            rel_folder_path = join(source_path, folder)
+            abs_folder_path = join(root, rel_folder_path)
+            folder_path = '/' + rel_folder_path.replace(os.sep, '/') + '/'
+            if ((not islink(abs_folder_path) or
+                 any(fnmatchcase(folder_path, p) for p in accept_symlink_paths))
+                and not any(fnmatchcase(folder_path, p) for p in ignore_paths)):
                 yield folder
 
 
@@ -393,7 +397,7 @@ def unicode_contents(path, encoding_guess):  # TODO: Make accessible to TreeToIn
                 return contents
 
 
-def unignored(folder, ignore_paths, ignore_filenames, want_folders=False):
+def unignored(folder, ignore_paths, ignore_filenames, want_folders=False, accept_symlink_paths=[]):
     """Return an iterable of bytestring absolute paths to unignored source
     tree files or the folders that contain them.
 
@@ -412,7 +416,7 @@ def unignored(folder, ignore_paths, ignore_filenames, want_folders=False):
         raise exc
 
     # TODO: Expose a lot of pieces of this as routines plugins can call.
-    for root, folders, files in os.walk(folder, topdown=True, onerror=raise_):
+    for root, folders, files in os.walk(folder, topdown=True, onerror=raise_, followlinks=True):
         # Find relative path
         rel_path = relpath(root, folder)
         if rel_path == '.':
@@ -436,7 +440,7 @@ def unignored(folder, ignore_paths, ignore_filenames, want_folders=False):
         # Exclude folders that match an ignore pattern.
         # os.walk listens to any changes we make in `folders`.
         folders[:] = _unignored_folders(
-            folders, rel_path, ignore_filenames, ignore_paths)
+            folders, root, rel_path, ignore_filenames, ignore_paths, accept_symlink_paths)
         if want_folders:
             for f in folders:
                 yield join(root, f)
@@ -604,7 +608,8 @@ def index_folders(tree, index, es):
     with aligned_progressbar(unignored(tree.source_folder,
                                        tree.ignore_paths,
                                        tree.ignore_filenames,
-                                       want_folders=True),
+                                       want_folders=True,
+                                       accept_symlink_paths = tree.accept_symlink_paths),
                      show_eta=False,  # never even close
                      label='Indexing folders') as folders:
         for folder in folders:
@@ -621,7 +626,8 @@ def index_files(tree, tree_indexers, index, pool, es):
         """Return an iterable of worker-sized iterables of paths."""
         return ichunks(500, unignored(tree.source_folder,
                                       tree.ignore_paths,
-                                      tree.ignore_filenames))
+                                      tree.ignore_filenames,
+                                      accept_symlink_paths = tree.accept_symlink_paths))
 
     index_folders(tree, index, es)
 

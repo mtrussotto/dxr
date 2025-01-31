@@ -227,6 +227,8 @@ class TreeConfig(DotSectionWrapper):
                      default=['.hg', '.git', 'CVS', '.svn', '.bzr',
                               '.deps', '.libs', '.DS_Store', '.nfs*', '*~',
                               '._*']): WhitespaceList,
+            Optional('accept_symlink_paths',
+                     default=[]): WhitespaceList,
             Optional('object_folder', default=None): AbsPath,
             'source_folder': AbsPath,
             Optional('source_encoding', default='utf-8'): basestring,
