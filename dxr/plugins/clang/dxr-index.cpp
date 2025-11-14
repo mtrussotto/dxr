@@ -36,6 +36,10 @@
 
 using namespace clang;
 
+#if CLANG_AT_LEAST(18, 0)
+constexpr auto InternalLinkage = Linkage::Internal;
+#endif
+
 namespace {
 
 const std::string GENERATED("--GENERATED--/");
@@ -148,11 +152,22 @@ public:
       StringRef fileName,
       bool isAngled,
       CharSourceRange filenameRange,
+#if CLANG_AT_LEAST(16,0)
+      OptionalFileEntryRef file,
+#elif CLANG_AT_LEAST(15,0)
+      Optional<FileEntryRef> file,
+#else
       const FileEntry *file,
+#endif
       StringRef searchPath,
       StringRef relativePath,
 #if CLANG_AT_LEAST(7, 0)
+# if CLANG_AT_LEAST(19, 0)
+      const Module *SuggestedModule,
+      bool ModuleImported,
+# else
       const Module *imported,
+# endif
       SrcMgr::CharacteristicKind fileType) override;
 #else
       const Module *imported) override;
@@ -414,7 +429,11 @@ public:
 #else
     const std::string anon_ns = "<anonymous namespace>";
 #endif
+#if CLANG_AT_LEAST(18, 0)
+    if (StringRef(ret).starts_with(anon_ns)) {
+#else
     if (StringRef(ret).startswith(anon_ns)) {
+#endif
       const std::string &realname = getRealFilenameForDefinition(d);
       ret = "(" + ret.substr(1, anon_ns.size() - 2) + " in " + realname + ")" +
         ret.substr(anon_ns.size());
@@ -619,7 +638,11 @@ public:
     if (!interestingLocation(d->getLocation()))
       return true;
 
+#if CLANG_AT_LEAST(18, 0)
+    if (d->isThisDeclarationADefinition() || d->isPureVirtual()) {
+#else
     if (d->isThisDeclarationADefinition() || d->isPure()) {
+#endif
       SourceLocation functionLocation = d->getLocation();
       beginRecord("function", functionLocation);
       std::string functionName = d->getNameAsString();
@@ -1167,7 +1190,11 @@ public:
 
     beginRecord("warning", info.getLocation());
     recordValue("msg", message.c_str());
+#if CLANG_AT_LEAST(20, 1)
+    StringRef opt = ci.getDiagnostics().getDiagnosticIDs()->getWarningOptionForDiag(info.getID());
+#else
     StringRef opt = DiagnosticIDs::getWarningOptionForDiag(info.getID());
+#endif
     if (!opt.empty())
       recordValue("opt", ("-W" + opt).str());
     if (info.getNumRanges() > 0) {
@@ -1306,11 +1333,22 @@ public:
       StringRef fileName,
       bool isAngled,
       CharSourceRange filenameRange,
+#if CLANG_AT_LEAST(16,0)
+      OptionalFileEntryRef file,
+#elif CLANG_AT_LEAST(15,0)
+      Optional<FileEntryRef> file,
+#else
       const FileEntry *file,
+#endif
       StringRef searchPath,
       StringRef relativePath,
 #if CLANG_AT_LEAST(7, 0)
+# if CLANG_AT_LEAST(19, 0)
+      const Module *SuggestedModule,
+      bool ModuleImported,
+# else
       const Module *imported,
+# endif
       SrcMgr::CharacteristicKind fileType) {
 #else
       const Module *imported) {
@@ -1441,10 +1479,24 @@ void PreprocThunk::InclusionDirective(
     StringRef fileName,
     bool isAngled,
     CharSourceRange filenameRange,
+#if CLANG_AT_LEAST(16,0)
+      OptionalFileEntryRef file,
+#elif CLANG_AT_LEAST(15,0)
+      Optional<FileEntryRef> file,
+#else
     const FileEntry *file,
+#endif
     StringRef searchPath,
     StringRef relativePath,
-#if CLANG_AT_LEAST(7, 0)
+#if CLANG_AT_LEAST(19, 0)
+    const Module *SuggestedModule,
+    bool ModuleImported,
+    SrcMgr::CharacteristicKind fileType) {
+  real->InclusionDirective(hashLoc, includeTok, fileName, isAngled, filenameRange,
+                           file, searchPath, relativePath, SuggestedModule, ModuleImported,
+                           fileType);
+}
+#elif CLANG_AT_LEAST(7, 0)
     const Module *imported,
     SrcMgr::CharacteristicKind fileType) {
   real->InclusionDirective(hashLoc, includeTok, fileName, isAngled, filenameRange,
